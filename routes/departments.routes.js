@@ -1,89 +1,75 @@
 const express = require('express');
 const router = express.Router();
-const ObjectId = require('mongodb').ObjectId;
+const Department = require('../models/department.model');
 
-router.get('/departments', (req, res) => {
-  req.db.collection('departments')
-  .find()
-  .toArray()
-  .then((data) => {
-    res.json(data);
-  })
-  .catch((err) => {
+router.get('/departments', async (req, res) => {
+  try {
+    res.json(await Department.find());
+  } catch(err) {
     res.status(500).json({ message: err });
-  });
+  }
 });
 
-router.get('/departments/random', (req, res) => {
-  req.db.collection('departments')
-  .aggregate([{ $sample: { size: 1}}])
-  .toArray()
-  .then((data) => {
-    res.json(data[0]);
-  })
-  .catch((err) => {
+router.get('/departments/random', async (req, res) => {
+  try {
+    const count = await Department.countDocuments();
+    const rand = Math.floor(Math.random() * count);
+    const dep = await Department.findOne().skip(rand);
+    if (!dep) res.status(404).json({ message: 'Not found' });
+    else res.json(dep);
+  } catch (err) {
     res.status(500).json({ message: err });
-  })
+  }
 });
 
-router.get('/departments/:id', (req, res) => {
-  const id = ObjectId(req.params.id);
-
-  req.db.collection('departments')
-  .findOne({ _id: id })
-  .then((data) => {
-    if (!data) res.status(404).json({ message: 'Not found' });
-    else res.json(data);
-  })
-  .catch((err) => {
+router.get('/departments/:id', async (req, res) => {
+  try {
+    const dep = await Department.findById(req.params.id);
+    if(!dep) res.status(404).json({ message: 'Not found' });
+    else res.json(dep);
+  } catch (err) {
     res.status(500).json({ message: err });
-  })
+  }
 });
 
-router.post('/departments', (req, res) => {
+router.post('/departments', async (req, res) => {
   const { name } = req.body;
-  
-  req.db.collection('departments')
-  .insertOne({ name: name})
-  .then(() => {
-    res.json({ message: 'New department add' });
-  })
-  .catch((err) => {
+  try {
+    const newDepartment = new Department({ name: name });
+    await newDepartment.save();
+    res.json({ message: 'OK' });
+  } catch (err) {
     res.status(500).json({ message: err });
-  })
+  }
 });
 
-router.put('/departments/:id', (req, res) => {
+router.put('/departments/:id', async (req, res) => {
   const { name } = req.body;
-  const id = ObjectId(req.params.id);
-
-  req.db.collection('departments')
-  .updateOne({ _id: id }, { $set: { name: name }})
-  .then((result) => {
-    if (result.matchedCount === 0) {
-      return res.status(404).json({ message: 'Department not found' });
+  try {
+    const dep = await Department.findById(req.params.id);
+    if (dep) {
+      dep.name = name;
+      await dep.save();
+      res.json(dep);
     }
-    res.json({ message: 'Department updated' })
-  })
-  .catch((err) => {
+    else res.status(404).json({ message: 'Not found...' });
+  } catch (err) {
     res.status(500).json({ message: err });
-  })
+  }
 });
 
-router.delete('/departments/:id', (req, res) => {
-  const id = ObjectId(req.params.id);
-
-  req.db.collection('departments')
-  .deleteOne({ _id: id})
-  .then((result) => {
-     if (result.deletedCount === 0) {
-      return res.status(404).json({ message: 'Department not found' });
-     }
-    res.json({ message: 'Department deleted'})
-  })
-  .catch((err) => {
+router.delete('/departments/:id', async (req, res) => {
+  try {
+    const dep = await Department.findById(req.params.id);
+    if (dep) {
+      await Department.deleteOne({ _id: req.params.id });
+      // OR await dep.remove();
+      res.json(dep);
+    }
+    else res.status(404).json({ message: 'Not found...' });
+  } catch (err) {
     res.status(500).json({ message: err });
-  })
+  }
 });
 
 module.exports = router;
